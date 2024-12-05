@@ -1,0 +1,146 @@
+import cv2
+import face_recognition
+import numpy as np
+import os
+import csv
+from datetime import datetime
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+# Email configuration
+EMAIL_ADDRESS = "                                                 "
+EMAIL_PASSWORD = "                                               "
+SMTP_SERVER = "                                             "
+SMTP_PORT = 587
+ALERT_RECIPIENT = "recipient                                     "
+
+# Directory to save detected face images
+face_images_dir = "detected_faces"
+os.makedirs(face_images_dir, exist_ok=True)
+
+# Log file to save face detection logs
+log_file = "face_logs.csv"
+
+# Write headers for the log file if it doesn't exist
+try:
+    with open(log_file, mode='x', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Name", "Time", "Location"])
+except FileExistsError:
+    pass  # File already exists
+
+# Function to send email alerts
+def send_email_alert(name, location):
+    subject = f"Alert: {name} Detected"
+    body = f"{name} was detected at {location}. Please check the camera feed."
+    message = MIMEMultipart()
+    message["From"] = EMAIL_ADDRESS
+    message["To"] = ALERT_RECIPIENT
+    message["Subject"] = subject
+    message.attach(MIMEText(body, "plain"))
+
+    try:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
+            server.sendmail(EMAIL_ADDRESS, ALERT_RECIPIENT, message.as_string())
+        print(f"Alert sent for {name}!")
+    except Exception as e:
+        print(f"Failed to send email alert: {e}")
+
+# Load sample faces
+known_face_encodings = []
+known_face_names = []
+
+try:
+    image1 = face_recognition.load_image_file("person1.jpg")
+    encoding1 = face_recognition.face_encodings(image1)[0]
+    known_face_encodings.append(encoding1)
+    known_face_names.append("Person 1")
+
+    image2 = face_recognition.load_image_file("person2.jpg")
+    encoding2 = face_recognition.face_encodings(image2)[0]
+    known_face_encodings.append(encoding2)
+    known_face_names.append("Person 2")
+
+    print("Sample faces loaded successfully.")
+except Exception as e:
+    print(f"Error loading sample faces: {e}")
+
+# Initialize video capture
+video_capture = cv2.VideoCapture(0)  # Use 0 for webcam or a video file path
+
+# Process video frames
+while True:
+    # Capture a frame
+    ret, frame = video_capture.read()
+    if not ret:
+        print("Failed to capture video frame. Exiting...")
+        break
+
+    # Resize frame for faster processing
+    small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
+    rgb_small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
+
+    # Detect faces
+    face_locations = face_recognition.face_locations(rgb_small_frame)
+    face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
+
+    face_names = []
+    for face_encoding in face_encodings:
+        # Check for matches with known faces
+        matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
+        name = "Unknown"
+
+        # Use the best match if a match is found
+        face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
+        best_match_index = np.argmin(face_distances)
+        if matches[best_match_index]:
+            name = known_face_names[best_match_index]
+
+        face_names.append(name)
+
+    # Process each detected face
+    for (top, right, bottom, left), name in zip(face_locations, face_names):
+        # Scale back up face locations
+        top *= 4
+        right *= 4
+        bottom *= 4
+        left *= 4
+
+        # Draw bounding box and label
+        cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
+        cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (0, 255, 0), cv2.FILLED)
+        cv2.putText(frame, name, (left + 6, bottom - 6), cv2.FONT_HERSHEY_DUPLEX, 0.5, (255, 255, 255), 1)
+
+        if name != "Unknown":
+            # Save the face image
+            face_image = frame[top:bottom, left:right]
+            current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+            face_filename = f"{name}_{current_time}.jpg"
+            face_image_path = os.path.join(face_images_dir, face_filename)
+            cv2.imwrite(face_image_path, face_image)
+            print(f"Saved face image: {face_image_path}")
+
+            # Log the detection
+            current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            location = f"Camera 1 (X: {left}, Y: {top})"
+            with open(log_file, mode='a', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow([name, current_time, location])
+            print(f"Logged: {name} at {current_time} in {location}")
+
+            # Send email alert
+            send_email_alert(name, location)
+
+    # Display the frame
+    cv2.imshow("Video Feed", frame)
+
+    # Break loop on 'q' key press
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# Release resources
+video_capture.release()
+cv2.destroyAllWindows()
