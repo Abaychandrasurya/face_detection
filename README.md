@@ -1,6 +1,7 @@
 # face_detection
 
-#Setup Instructions
+# Setup Instructions
+
 Install Dependencies:
 
 Install the required Python libraries
@@ -18,3 +19,19 @@ Use an app password if your email provider requires it (e.g., Gmail).
 Run the Code:
 
 Execute the script and test with your webcam or a video file.++
+
+
+# Features Covered
+
+Face Detection and Recognition:
+
+Detects faces in real-time and identifies known individuals.
+Logging:
+
+Logs recognized faces with the name, timestamp, and location in a CSV file (face_logs.csv).
+Live Alerts:
+
+Sends email alerts for recognized faces to the specified recipient.
+Saving Face Images:
+
+Saves cropped face images of recognized individuals in the detected_faces directory
