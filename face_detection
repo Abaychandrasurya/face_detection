@@ -9,11 +9,10 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 # Email configuration
-EMAIL_ADDRESS = "                                                 "
-EMAIL_PASSWORD = "                                               "
-SMTP_SERVER = "                                             "
+EMAIL_ADDRESS = "abhayc2274@gmail.com"
+SMTP_SERVER = " "
 SMTP_PORT = 587
-ALERT_RECIPIENT = "recipient                                     "
+ALERT_RECIPIENT = "Siri121@gmail.com "
 
 # Directory to save detected face images
 face_images_dir = "detected_faces"
